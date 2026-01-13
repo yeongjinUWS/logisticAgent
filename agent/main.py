@@ -6,7 +6,7 @@ from langchain_community.utilities import SQLDatabase
 from langchain_experimental.sql import SQLDatabaseChain
 
 # 1. API 키 설정 (무료 계층 사용)
-os.environ["GOOGLE_API_KEY"] = "AIzaSyDJFtX8zbKyjvP5ylbyPSuO5QsjxGyjO9I"
+
 
 # 2. State 정의
 class GraphState(TypedDict):
