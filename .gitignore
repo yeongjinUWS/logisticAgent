@@ -38,3 +38,5 @@ build/
 ### Mac OS ###
 .DS_Store
 /.idea/
+agent/label_encoder.pkl
+agent/logistics_model.pkl
