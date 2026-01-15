@@ -35,7 +35,7 @@ def analyze_warehouse(state: GraphState) -> GraphState:
     질문: {state['input']}
     """
     res = llm.invoke(prompt)
-    
+    # 전처리가 없을 수도 있으나, 필요할 수도 있음...
     # 전처리: 공백 제거, 대문자 변환, 그리고 첫 번째 알파벳만 추출
     raw_target = res.content.strip().upper()
     print("-- raw_target : " + raw_target + " --")
@@ -53,7 +53,7 @@ def run_wh_model(state: GraphState) -> GraphState:
     
     print(f"--- {wh} 창고 에이전트 가동 ---")
 
-    # 1. 제품명이 UNKNOWN이거나 목록을 요청하는 경우
+    # 제품명이 UNKNOWN이거나 목록을 요청하는 경우
     if prod_name == "UNKNOWN" or "리스트" in state["input"] or "목록" in state["input"]:
         # 인코더에서 학습된 모든 제품명 중 상위 10개만 추출
         all_products = le_product.classes_
@@ -66,7 +66,7 @@ def run_wh_model(state: GraphState) -> GraphState:
         )
         return {"response": response}
 
-    # 2. 실제 제품 코드가 들어온 경우 (예측 로직)
+    # 실제 제품 코드가 들어온 경우 (예측 로직)
     try:
         # 제품명을 숫자로 변환
         prod_n = le_product.transform([prod_name])[0]
