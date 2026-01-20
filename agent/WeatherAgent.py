@@ -7,8 +7,6 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 import pandas as pd
 import numpy as np
 
-
-
 class GraphState(TypedDict):
     input: str
     target_wh: Optional[str]
@@ -18,19 +16,22 @@ class GraphState(TypedDict):
     weather_info: Optional[str]  # 온도
     response: Optional[str]
 
+# 머신러닝 모델
 models = {
     "A": joblib.load("model_Whse_A.pkl"),
     "C": joblib.load("model_Whse_C.pkl"),
     "J": joblib.load("model_Whse_J.pkl"),
     "S": joblib.load("model_Whse_S.pkl")
 }
+# 인덱스 모델 
 le_product = joblib.load("le_product.pkl")
-
+# LLM은 제미나이
 llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0)
+
 def analyze_weather(state: GraphState) -> GraphState:
-    print("--- 질문 분석 중 (날짜의 날씨) ---")
+    print("--- 질문 분석 중 (오늘의 날씨) ---")
     prompt = f"""
-    당신은 날씨 알리미입니다. 사용자의 질문을 분석하여 무작위 날짜에 서울의 온도와 날씨를 검색해서 알려줘
+    당신은 날씨 알리미입니다. 사용자의 질문을 분석하여 무작위 날짜의 서울의 온도와 날씨를 검색해서 알려줘
     - 설명이나 인사말 없이 오직 결과의 형태는 [온도 : 00도, 날씨 : 맑음] 형태로만 해
     질문: {state['input']}
     """
@@ -63,6 +64,7 @@ def analyze_warehouse(state: GraphState) -> GraphState:
     
     print(f" == 추출 결과 - 창고: {target}, 제품: {target_prod} == ")
     return {"target_wh": target, "target_product": target_prod}
+
 def run_wh_model(state: GraphState) -> GraphState:
     wh = state["target_wh"]
     prod_name = state.get("target_product", "AUTO_SELECT")
@@ -134,18 +136,27 @@ def router_logic(state: GraphState) -> str:
         return "use_model"
     return "use_llm"
 
+def starter_logic(state: GraphState) -> str:
+    if state["weather_info"]:
+        return "use_model"
+    return "use_llm"
 builder = StateGraph(GraphState)
 
-builder.add_node("start", analyze_weather)
-builder.add_node("router", analyze_warehouse)
-builder.add_node("ml_agent", run_wh_model)
+builder.add_node("weather_agent", analyze_weather)
+builder.add_node("find_warehouse", analyze_warehouse)
+builder.add_node("warehouse_agent", run_wh_model)
 builder.add_node("llm_agent", run_general_llm)
 builder.add_node("run_finish_llm",run_finish_llm)
-builder.add_edge("ml_agent", "run_finish_llm")
-builder.add_edge("start","router")
-builder.set_entry_point("start")
-builder.add_conditional_edges("router", router_logic, {
-    "use_model": "ml_agent",
+builder.add_edge("warehouse_agent", "run_finish_llm")
+builder.set_entry_point("weather_agent")
+
+builder.add_conditional_edges("weather_agent", starter_logic, {
+    "use_model": "find_warehouse",
+    "use_llm": "llm_agent"
+})
+
+builder.add_conditional_edges("find_warehouse", router_logic, {
+    "use_model": "warehouse_agent",
     "use_llm": "llm_agent"
 })
 
@@ -153,6 +164,7 @@ builder.set_finish_point("run_finish_llm")
 builder.set_finish_point("llm_agent")
 
 graph = builder.compile()
+
 # 실행 (Main)
 if __name__ == "__main__":
     print("=== 물류 AI 에이전트  ===")
