@@ -15,7 +15,7 @@ export default function ViewAPI() {
                 message: text
             }).then((response) => {
                 console.log(response)
-                setMessages(prev => [...prev, { id: response.data.id || Date.now(), text: response.data.result, sender: 'bot' }]);
+                setMessages(prev => [...prev, { id: response.data.id || Date.now(), text: response.data.response, sender: 'bot' }]);
             }).catch((error) => {
                 console.log(error);
             })

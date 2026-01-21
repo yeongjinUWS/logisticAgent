@@ -27,7 +27,7 @@ models = {
 le_product = joblib.load("le_product.pkl")
 # LLM은 제미나이
 llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash-lite", temperature=0)
-#gemma-3-4b , gemini-2.5-flash , gemini-2.5-flash-lite
+#gemini-3.0-flash , gemini-2.5-flash , gemini-2.5-flash-lite
 def analyze_weather(state: GraphState) -> GraphState:
     print("--- 질문 분석 중 (오늘의 날씨) ---")
     prompt = f"""
@@ -104,7 +104,12 @@ def run_wh_model(state: GraphState) -> GraphState:
 
 def run_general_llm(state: GraphState) -> GraphState:
     print("--- LLM 에이전트 ---")
-    res = llm.invoke(state["input"])
+    prompt = f"""
+    당신은 veneta reserve AI agent입니다. 
+    한글로 친절하게 존댓말로 짧게 답변을 하세요.
+    질문: {state['input']}
+    """
+    res = llm.invoke(prompt)
     return {"response": res.content}
 
 def run_finish_llm(state: GraphState) -> GraphState:
@@ -166,8 +171,37 @@ builder.set_finish_point("llm_agent")
 graph = builder.compile()
 
 # 실행 (Main)
+# if __name__ == "__main__":
+#     print("=== 물류 AI 에이전트  ===")
+#     user_input = input("항목을 입력하세요: ")
+#     result = graph.invoke({"input": user_input})
+#     print("\n", result["response"])
+
+
+from fastapi import FastAPI
+from pydantic import BaseModel
+
+
+app = FastAPI(title="Logistics AI Agent")
+
+# === Request / Response 모델 ===
+class ChatRequest(BaseModel):
+    input: str
+
+class ChatResponse(BaseModel):
+    response: str
+
+
+@app.post("/chat", response_model=ChatResponse)
+def chat(req: ChatRequest):
+    """
+    Spring에서 호출하는 엔드포인트
+    """
+    result = graph.invoke({"input": req.input})
+    return ChatResponse(response=result["response"])
+
+
+# === 로컬 테스트용 (선택) ===
 if __name__ == "__main__":
-    print("=== 물류 AI 에이전트  ===")
-    user_input = input("항목을 입력하세요: ")
-    result = graph.invoke({"input": user_input})
-    print("\n", result["response"])
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -22,7 +22,7 @@ public class WebController {
 
         String userMessage = request.get("message").toString();
 
-        Map<String,String> response = webService.chat(userMessage);
+        Map<String,Object> response = webService.chat(userMessage);
 
         return ResponseEntity.ok(response);
     }
