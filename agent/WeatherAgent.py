@@ -26,8 +26,8 @@ models = {
 # 인덱스 모델 
 le_product = joblib.load("le_product.pkl")
 # LLM은 제미나이
-llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0)
-
+llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash-lite", temperature=0)
+#gemma-3-4b , gemini-2.5-flash , gemini-2.5-flash-lite
 def analyze_weather(state: GraphState) -> GraphState:
     print("--- 질문 분석 중 (오늘의 날씨) ---")
     prompt = f"""
