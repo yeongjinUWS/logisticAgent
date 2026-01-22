@@ -12,10 +12,9 @@ from datetime import datetime
 class GraphState(TypedDict):
     input: str
 
-    target_wh: Optional[list]
-    target_product: Optional[list]
-    target_date: Optional[str]
-    target_category: Optional[list]
+    target_wh: Optional[list[str]]
+    target_product: Optional[list[str]]
+    target_category: Optional[list[str]]
 
     weather: Optional[dict]  
     temperature: Optional[float]
@@ -58,58 +57,90 @@ def analyze_prompt(state: GraphState) -> GraphState:
     prom = prom_match.group(1) if prom_match else "일반"
 
     if prom == '물류': 
-        wh_match = re.search(r'창고\s*:\s*([^,\]\s]+)', content)
-        prod_match = re.search(r'제품\s*:\s*([^,\]\s]+)', content)
+        wh = re.search(r'창고\s*:\s*([^,\]\s]+)', content)
+        prod = re.search(r'제품\s*:\s*([^,\]\s]+)', content)
+
+        wh_val = wh.group(1) if wh else "UNKNOWN"
+        prod_val = prod.group(1) if prod else "AUTO_SELECT"
+
+        wh_list = (
+            list(models.keys()) if wh_val == "전체"
+            else [wh_val]
+        )
+
+        prod_list = (
+            [] if prod_val in ["전체", "AUTO_SELECT"]
+            else [prod_val]
+        )
+
         return {
-            "analyze_prompt": prom, 
-            "target_wh": wh_match.group(1) if wh_match else "UNKNOWN", 
-            "target_product": prod_match.group(1) if prod_match else "AUTO_SELECT"
+            "analyze_prompt": "물류",
+            "target_wh": wh_list,
+            "target_product": prod_list
         }
     return {"analyze_prompt": prom}
 
 def analyze_weather(state: GraphState) -> GraphState:
-    wh = state.get("target_wh", "UNKNOWN")
-    prod_name = state.get("target_product", "AUTO_SELECT")
-    
-    if wh not in models:
-        return {"response": "유효하지 않은 창고입니다."}
-    
-    if (
-        prod_name in ["UNKNOWN", "AUTO_SELECT", "전체"]
-        or prod_name not in le_product.classes_
-    ):
-        all_prods = ", ".join(le_product.classes_[:10])
-        return {
-            "response": f"{wh} 창고의 주요 제품 리스트입니다: {all_prods}",
-            "target_product": None,
-            "target_category": None
-        }
+    weather = state.get("weather", {})
+
+    temp = float(weather.get("T1H", 0))
+    rain = float(weather.get("RN1", 0))
+    pty = int(weather.get("PTY", 0))
+    wind = float(weather.get("WSD", 0))
+    reh = int(weather.get("REH", 0))
+
+    return {
+        "temperature": temp,
+        "rain_flag": 1 if (rain > 0 or pty > 0) else 0,
+        "wind_speed": wind,
+        "humidity": reh
+    }
 
 
-    print(f"--- [에이전트] {wh} 창고 예측 수행 중 ---")
+def run_wh_model(state: GraphState) -> GraphState:
+    print("=== Warehouse Predict Agent ===")
+    wh_list = state.get("target_wh", [])
+    prod_list = state.get("target_product", [])
 
-    try:
-        prod_n = le_product.transform([prod_name])[0]
-        cat_name = product_category_map.get(prod_name, "기타")
-        category_n = le_category.transform([cat_name])[0]
+    results = []
 
-        sample_X = pd.DataFrame([[
-            datetime.now().month,
-            category_n,
-            prod_n
-        ]], columns=[
-            "Month",
-            "Category_n",
-            "Product_n"
-        ])
-        
-        base_pred = float(models[wh].predict(sample_X)[0])      
+    for wh in wh_list:
+        if wh not in models:
+            continue
 
-        return {"response": str(base_pred), "target_product": prod_name, "target_category" : cat_name}
+        # 상품이 비어 있으면 → 전체 상품 평가
+        products = prod_list if prod_list else le_product.classes_
 
-    except Exception as e:
-        print(f"[예측 처리 오류] {e} ")
-        return {"response": f"예측 처리 오류: {e}", "target_product": "UNKNOWN"}
+        for prod_name in products:
+            if prod_name not in le_product.classes_:
+                continue
+
+            try:
+                prod_n = le_product.transform([prod_name])[0]
+                cat_name = product_category_map.get(prod_name, "기타")
+                category_n = le_category.transform([cat_name])[0]
+
+                sample_X = pd.DataFrame([[
+                    datetime.now().month,
+                    category_n,
+                    prod_n
+                ]], columns=["Month", "Category_n", "Product_n"])
+
+                pred = float(models[wh].predict(sample_X)[0])
+
+                results.append({
+                    "warehouse": wh,
+                    "product": prod_name,
+                    "category": cat_name,
+                    "pred": pred
+                })
+
+            except Exception:
+                continue
+
+    sorted_results = sorted(results, key=lambda x: x["pred"], reverse=True)
+    print(f"results :  {sorted_results[:5]}")
+    return {"response": sorted_results[:5]}
 
 def run_general_llm(state: GraphState) -> GraphState:
     print("--- LLM 에이전트 ---")
@@ -149,6 +180,7 @@ def run_finish_llm(state: GraphState) -> GraphState:
     4. ML 모델 기준 예측치: {base_val}개
     
     제공된 '날씨 정보', '제품, 카테고리 정보'를 바탕으로 '기준 예측치'를 스스로 보정하세요.
+    여러 항목이라면, 예측치의 내림차순으로 정리해서 출력하세요.
     형식: "[상품명]은 [날씨] 조건에서 [예측수요]의 수요가 예상되어 [상태/권고] 상태입니다."
     설명 없이 위 형식에 맞춰서 딱 한 줄만 출력해.
     """
@@ -165,19 +197,11 @@ def run_finish_llm(state: GraphState) -> GraphState:
                 f"예상 수요 {state.get('response')} 수준입니다."
             )
         }
-def run_end(state: GraphState) -> GraphState:
-    print("--- 종료 ---")
-    return {"response": state.get('response')}
 
 def route_input(state: GraphState) -> str:
     if state["analyze_prompt"] == "물류":
         return "use_weather"
     return "use_llm"
-
-def route_ml_result(state: GraphState) -> str:
-    if state.get("target_category"):
-        return "run_finish_llm"
-    return "end"
 
 builder = StateGraph(GraphState)
 
@@ -186,19 +210,13 @@ builder.add_node("weather_agent", analyze_weather)
 builder.add_node("warehouse_agent", run_wh_model)
 builder.add_node("llm_agent", run_general_llm)
 builder.add_node("run_finish_llm",run_finish_llm)
-builder.add_node("run_end",run_end)
 
 builder.add_edge("weather_agent", "warehouse_agent")
-
+builder.add_edge("warehouse_agent", "run_finish_llm")
 builder.set_entry_point("analyze_prompt")
-
 builder.add_conditional_edges("analyze_prompt", route_input, {
     "use_weather": "weather_agent",
     "use_llm": "llm_agent"
-})
-builder.add_conditional_edges("warehouse_agent",route_ml_result,{
-    "run_finish_llm":"run_finish_llm",
-    "end":"run_end"
 })
 builder.set_finish_point("run_finish_llm")
 builder.set_finish_point("llm_agent")
