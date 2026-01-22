@@ -6,15 +6,25 @@ from langgraph.graph import StateGraph
 from langchain_google_genai import ChatGoogleGenerativeAI
 import pandas as pd
 import numpy as np
+from datetime import datetime
+
 
 class GraphState(TypedDict):
     input: str
-    target_wh: Optional[str]
-    target_prod: Optional[str]
+
+    target_wh: Optional[list]
+    target_product: Optional[list]
     target_date: Optional[str]
-    target_temp: Optional[str] # 맑음, 비 , 등
-    weather_info: Optional[str]  # 온도
+    target_category: Optional[list]
+
+    weather: Optional[dict]  
+    temperature: Optional[float]
+    rain_flag: Optional[int]
+    wind_speed: Optional[float]
+    humidity: Optional[int]
+
     response: Optional[str]
+    analyze_prompt: Optional[str]
 
 # 머신러닝 모델
 models = {
@@ -25,81 +35,80 @@ models = {
 }
 # 인덱스 모델 
 le_product = joblib.load("le_product.pkl")
+le_category = joblib.load("le_category.pkl")
+product_category_map = joblib.load("product_category_map.pkl")
 # LLM은 제미나이
-llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash-lite", temperature=0)
+llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0)
 #gemini-3.0-flash , gemini-2.5-flash , gemini-2.5-flash-lite
+
+def analyze_prompt(state: GraphState) -> GraphState:
+    print("=Prompt 분석중=")
+    prompt = f"""
+    당신은 veneta multi 물류 AI agent입니다. 질문을 분석하여 다음 형식으로만 답하세요.
+    - 일반 질문인 경우: [질문: 일반]
+    - 물류/창고 질문인 경우: [질문: 물류, 창고: A, 제품: Product_0979] (창고는 A,C,J,S 중 선택, 전체)
+    질문: {state['input']}
+    """
+    
+    res = llm.invoke(prompt)
+    print(f" = prompt 분석 결과 :  {res.content} = ")
+    content = res.content
+
+    prom_match = re.search(r'질문\s*:\s*([^,\]\s]+)', content)
+    prom = prom_match.group(1) if prom_match else "일반"
+
+    if prom == '물류': 
+        wh_match = re.search(r'창고\s*:\s*([^,\]\s]+)', content)
+        prod_match = re.search(r'제품\s*:\s*([^,\]\s]+)', content)
+        return {
+            "analyze_prompt": prom, 
+            "target_wh": wh_match.group(1) if wh_match else "UNKNOWN", 
+            "target_product": prod_match.group(1) if prod_match else "AUTO_SELECT"
+        }
+    return {"analyze_prompt": prom}
+
 def analyze_weather(state: GraphState) -> GraphState:
-    print("--- 질문 분석 중 (오늘의 날씨) ---")
-    prompt = f"""
-    당신은 날씨 알리미입니다. 사용자의 질문을 분석하여 무작위 날짜의 서울의 온도와 날씨를 검색해서 알려줘
-    - 설명이나 인사말 없이 오직 결과의 형태는 [온도 : 00도, 날씨 : 맑음] 형태로만 해
-    질문: {state['input']}
-    """
-    res = llm.invoke(prompt)
-    print(f" == prompt 결과 : {res.content} == ")
-    
-    temp = int(re.search(r'온도\s*:\s*(-?\d+)', res.content).group(1))
-    return {"weather_info": res.content, "target_temp": str(temp)}
-
-def analyze_warehouse(state: GraphState) -> GraphState:
-    print("--- 질문 분석 중 (창고 분류) ---")
-    prompt = f"""
-    당신은 창고 분류기입니다. 사용자의 질문을 분석하여 반드시 다음 중 한 글자만 출력해.
-    - 대상 창고: A, C, J, S
-    - 해당하는 창고가 없으면 반드시 'UNKNOWN'이라고만 답해.
-    - 설명이나 인사말 없이 오직 한 단어만 출력해.
-    질문: {state['input']}
-    """
-    res = llm.invoke(prompt)
-    # 전처리가 없을 수도 있으나, 필요할 수도 있음...
-    # 전처리: 공백 제거, 대문자 변환, 그리고 첫 번째 알파벳만 추출
-    raw_target = res.content.strip().upper()
-    print("-- raw_target : " + raw_target + " --")
-    
-    # 정규표현식을 사용하여 응답 중 A, C, J, S, UNKNOWN 키워드만 추출
-    match = re.search(r'\b(A|C|J|S|UNKNOWN)\b', raw_target)
-    target = match.group(0) if match else "UNKNOWN"
-    prod_match = re.search(r'PRODUCT_\d+', state['input'].upper())
-    target_prod = prod_match.group(0) if prod_match else "AUTO_SELECT"
-    
-    print(f" == 추출 결과 - 창고: {target}, 제품: {target_prod} == ")
-    return {"target_wh": target, "target_product": target_prod}
-
-def run_wh_model(state: GraphState) -> GraphState:
-    wh = state["target_wh"]
+    wh = state.get("target_wh", "UNKNOWN")
     prod_name = state.get("target_product", "AUTO_SELECT")
-    weather_text = state.get("weather_info", "평이한 날씨")
     
+    if wh not in models:
+        return {"response": "유효하지 않은 창고입니다."}
+    
+    if (
+        prod_name in ["UNKNOWN", "AUTO_SELECT", "전체"]
+        or prod_name not in le_product.classes_
+    ):
+        all_prods = ", ".join(le_product.classes_[:10])
+        return {
+            "response": f"{wh} 창고의 주요 제품 리스트입니다: {all_prods}",
+            "target_product": None,
+            "target_category": None
+        }
+
+
     print(f"--- [에이전트] {wh} 창고 예측 수행 중 ---")
 
     try:
-        # 1. 상품 선택 로직: AUTO_SELECT일 경우 첫 번째 상품 선택
-        if prod_name == "AUTO_SELECT":
-            prod_name = le_product.classes_[0] # 첫 번째 상품 자동 선택
-            print(f"--- [자동 선택] {prod_name}으로 예측을 진행합니다 ---")
-
-        # 2. ML 모델 기준점 계산
         prod_n = le_product.transform([prod_name])[0]
-        # 현재 날짜 기준 월(Month) 추출 (예: 1월)
-        current_month = 1 
-        sample_X = pd.DataFrame([[current_month, 0, prod_n]], columns=['Month', 'Category_n', 'Product_n'])
-        base_pred = models[wh].predict(sample_X)[0]
+        cat_name = product_category_map.get(prod_name, "기타")
+        category_n = le_category.transform([cat_name])[0]
 
-        # 3. LLM에게 날씨 기반 보정치 요청
-        reasoning_prompt = f"""
-        날씨 정보: {weather_text}
-        위 날씨가 물류 수요에 미칠 영향(보정 계수)을 숫자만 답하세요. (예: 1.1)
-        """
-        adj_res = llm.invoke(reasoning_prompt)
-        # 숫자만 추출하기 위한 처리
-        adjustment = float(re.search(r"[-+]?\d*\.\d+|\d+", adj_res.content).group())
-
-        final_pred = base_pred * adjustment
+        sample_X = pd.DataFrame([[
+            datetime.now().month,
+            category_n,
+            prod_n
+        ]], columns=[
+            "Month",
+            "Category_n",
+            "Product_n"
+        ])
         
-        report = f"{final_pred:.2f}개 (기본:{base_pred:.2f} * 보정:{adjustment})"
-        return {"response": report, "target_product": prod_name}
+        base_pred = float(models[wh].predict(sample_X)[0])      
+
+        return {"response": str(base_pred), "target_product": prod_name, "target_category" : cat_name}
 
     except Exception as e:
+        print(f"[예측 처리 오류] {e} ")
         return {"response": f"예측 처리 오류: {e}", "target_product": "UNKNOWN"}
 
 def run_general_llm(state: GraphState) -> GraphState:
@@ -116,55 +125,81 @@ def run_finish_llm(state: GraphState) -> GraphState:
     print("--- 분석 결과 요약 중 ---")
     
     # 이전 노드에서 저장된 데이터 활용
-    weather = state.get('weather_info', '정보 없음')
-    prediction_report = state.get('response', '예측 불가')
+    temp = state.get("temperature",{})
+    rain = state.get("rain_flag",{})
+    wind = state.get("wind_speed",{})
+    hum = state.get("humidity",{})
+    base_val = state.get('response', '0') 
     product = state.get('target_product', '해당 상품')
-    
+    category = state.get('target_category','정보 없음')
+    weather = (
+        f"기온 {temp}도, "
+        f"강수 {'있음' if rain == 1 else '없음'}, "
+        f"풍속 {wind}m/s, "
+        f"습도 {hum}%"
+    )
+
     prompt = f"""
     당신은 물류 요약 에이전트입니다. 다음 데이터를 바탕으로 한 문장으로 핵심만 리포트하세요.
     
     데이터:
-    - 날씨: {weather}
-    - 예측: {prediction_report}
-    - 상품: {product}
+    1. 상품명: {product}
+    2. 카테고리 : {category}
+    3. 날씨 정보: {weather}
+    4. ML 모델 기준 예측치: {base_val}개
     
+    제공된 '날씨 정보', '제품, 카테고리 정보'를 바탕으로 '기준 예측치'를 스스로 보정하세요.
     형식: "[상품명]은 [날씨] 조건에서 [예측수요]의 수요가 예상되어 [상태/권고] 상태입니다."
     설명 없이 위 형식에 맞춰서 딱 한 줄만 출력해.
     """
     
-    res = llm.invoke(prompt)
-    return {"response": res.content.strip()}
+    try:
+        res = llm.invoke(prompt)
+        return {"response": res.content.strip()}
+    except Exception as e:
+        return {
+            "response": (
+                f"{state.get('target_product')}은 "
+                f"현재 기온 {state.get('temperature')}도, "
+                f"{'강수 있음' if state.get('rain_flag') else '강수 없음'} 조건에서 "
+                f"예상 수요 {state.get('response')} 수준입니다."
+            )
+        }
+def run_end(state: GraphState) -> GraphState:
+    print("--- 종료 ---")
+    return {"response": state.get('response')}
 
-# --- 조건부 엣지 ---
-def router_logic(state: GraphState) -> str:
-    if state["target_wh"] in ["A", "C", "J", "S"]:
-        return "use_model"
+def route_input(state: GraphState) -> str:
+    if state["analyze_prompt"] == "물류":
+        return "use_weather"
     return "use_llm"
 
-def starter_logic(state: GraphState) -> str:
-    if state["weather_info"]:
-        return "use_model"
-    return "use_llm"
+def route_ml_result(state: GraphState) -> str:
+    if state.get("target_category"):
+        return "run_finish_llm"
+    return "end"
+
 builder = StateGraph(GraphState)
 
+builder.add_node("analyze_prompt", analyze_prompt)
 builder.add_node("weather_agent", analyze_weather)
-builder.add_node("find_warehouse", analyze_warehouse)
 builder.add_node("warehouse_agent", run_wh_model)
 builder.add_node("llm_agent", run_general_llm)
 builder.add_node("run_finish_llm",run_finish_llm)
-builder.add_edge("warehouse_agent", "run_finish_llm")
-builder.set_entry_point("weather_agent")
+builder.add_node("run_end",run_end)
 
-builder.add_conditional_edges("weather_agent", starter_logic, {
-    "use_model": "find_warehouse",
+builder.add_edge("weather_agent", "warehouse_agent")
+
+builder.set_entry_point("analyze_prompt")
+
+builder.add_conditional_edges("analyze_prompt", route_input, {
+    "use_weather": "weather_agent",
     "use_llm": "llm_agent"
 })
-
-builder.add_conditional_edges("find_warehouse", router_logic, {
-    "use_model": "warehouse_agent",
-    "use_llm": "llm_agent"
+builder.add_conditional_edges("warehouse_agent",route_ml_result,{
+    "run_finish_llm":"run_finish_llm",
+    "end":"run_end"
 })
-
 builder.set_finish_point("run_finish_llm")
 builder.set_finish_point("llm_agent")
 
@@ -187,6 +222,7 @@ app = FastAPI(title="Logistics AI Agent")
 # === Request / Response 모델 ===
 class ChatRequest(BaseModel):
     input: str
+    weather: dict 
 
 class ChatResponse(BaseModel):
     response: str
@@ -197,7 +233,12 @@ def chat(req: ChatRequest):
     """
     Spring에서 호출하는 엔드포인트
     """
-    result = graph.invoke({"input": req.input})
+
+    # result = graph.invoke({"input": req.input})
+    result = graph.invoke({
+        "input": req.input,
+        "weather": req.weather
+    })
     return ChatResponse(response=result["response"])
 
 

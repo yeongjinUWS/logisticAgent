@@ -42,5 +42,14 @@ for wh in warehouses:
     print(f"Successfully saved: model_{wh}.pkl")
 
 # 전체 공통 인코더 저장
+product_category_map = (
+    df[['Product_Code', 'Product_Category']]
+    .drop_duplicates()
+    .set_index('Product_Code')['Product_Category']
+    .to_dict()
+)
+
+joblib.dump(product_category_map, 'product_category_map.pkl')
+
 joblib.dump(le_product, 'le_product.pkl')
 joblib.dump(le_category, 'le_category.pkl')
