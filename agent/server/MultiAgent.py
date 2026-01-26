@@ -37,7 +37,7 @@ le_product = joblib.load("le_product.pkl")
 le_category = joblib.load("le_category.pkl")
 product_category_map = joblib.load("product_category_map.pkl")
 # LLM은 제미나이
-llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0)
+llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash-lite", temperature=0)
 #gemini-3.0-flash , gemini-2.5-flash , gemini-2.5-flash-lite
 
 def analyze_prompt(state: GraphState) -> GraphState:
@@ -155,7 +155,6 @@ def run_general_llm(state: GraphState) -> GraphState:
 def run_finish_llm(state: GraphState) -> GraphState:
     print("--- 분석 결과 요약 중 ---")
     
-    # 이전 노드에서 저장된 데이터 활용
     temp = state.get("temperature",{})
     rain = state.get("rain_flag",{})
     wind = state.get("wind_speed",{})
@@ -181,8 +180,6 @@ def run_finish_llm(state: GraphState) -> GraphState:
     
     제공된 '날씨 정보', '제품, 카테고리 정보'를 바탕으로 '기준 예측치'를 스스로 보정하세요.
     여러 항목이라면, 예측치의 내림차순으로 정리해서 출력하세요.
-    형식: "[상품명]은 [날씨] 조건에서 [예측수요]의 수요가 예상되어 [상태/권고] 상태입니다."
-    설명 없이 위 형식에 맞춰서 딱 한 줄만 출력해.
     """
     
     try:

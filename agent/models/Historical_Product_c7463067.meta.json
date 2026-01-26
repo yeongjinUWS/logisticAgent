@@ -1,0 +1,15 @@
+{
+    "modelFile": "Historical_Product_c7463067.pkl",
+    "title": "Historical_Product",
+    "features": [
+        "Order_Demand",
+        "Date"
+    ],
+    "encodedColumns": [
+        "Order_Demand",
+        "Date"
+    ],
+    "rows": 141950,
+    "createdAt": "2026-01-26T15:18:46.297909",
+    "status": "success"
+}

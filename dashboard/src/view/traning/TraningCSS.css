@@ -1,0 +1,141 @@
+.container {
+  display: flex;
+  height: 100%;
+  font-family: Arial, sans-serif;
+}
+
+/* 좌측 */
+.left {
+  width: 20%;
+  padding: 24px;
+  border-right: 1px solid #ddd;
+  background: #fafafa;
+}
+
+.left h2 {
+  margin-bottom: 16px;
+}
+
+.left input {
+  margin-bottom: 12px;
+}
+
+.left button {
+  padding: 10px 14px;
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.button{
+    padding: 10px 14px;
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.button:disabled {
+  background: #aaa;
+}
+.left button:disabled {
+  background: #aaa;
+}
+
+.file-info {
+  margin-top: 12px;
+  font-size: 14px;
+}
+
+/* 우측 */
+.right {
+  width: 65%;
+  padding: 24px;
+}
+
+.right h2 {
+  margin-bottom: 16px;
+}
+
+.empty {
+  color: #888;
+  font-size: 14px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+thead {
+  background: #f1f5f9;
+}
+
+th,
+td {
+  padding: 10px;
+  border-bottom: 1px solid #ddd;
+  text-align: left;
+}
+
+tr:hover {
+  background: #f9fafb;
+}
+
+.flexTab {
+  display: flex;
+}
+
+.headText {
+  font-size: 14px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.bodyText {
+  font-size: 10px;
+  max-width: 5vw;
+  word-break: break-all;
+  overflow-wrap: break-word;
+}
+.model-list {
+  padding-left: 0;  
+  margin: 0;        
+  list-style: none; 
+}
+.model-header {
+  background-color: #2563eb;
+  border: none; 
+  border-radius: 8px;
+  
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 16px;
+  text-align: center;
+  
+  /* 레이아웃 */
+  padding: 12px 24px;
+  display: inline-block; /* div를 버튼 크기에 맞춤 */
+  cursor: pointer;
+  transition: all 0.3s ease; /* 부드러운 변화 */
+  
+  /* 입체감 (그림자) */
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  
+  /* 텍스트 드래그 방지 (버튼처럼 느끼게 함) */
+  user-select: none;
+}
+
+/* 마우스를 올렸을 때 (Hover) */
+.model-header:hover {
+  background-color: #1d4ed8;
+  transform: translateY(-2px); /* 살짝 위로 떠오르는 효과 */
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+/* 클릭했을 때 (Active) */
+.model-header:active {
+  transform: translateY(0); /* 다시 내려옴 */
+  background-color: #1e40af;
+}

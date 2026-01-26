@@ -1,8 +1,12 @@
 spring:
   application:
     name: agent
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 100MB
 server:
-  port: 8080
+  port: 6060
   address: 0.0.0.0
 
 ---

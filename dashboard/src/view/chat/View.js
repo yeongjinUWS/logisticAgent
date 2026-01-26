@@ -7,11 +7,11 @@ export default function View({  }) {
 
     const handleSend = () => {
         onSend(inputText);
-        setInputText(""); // 발송 후 입력창 초기화
+        setInputText("");
     };
 
     return (
-        <div style={{ padding: '20px' }}> {/* 웹 환경이면 div, 앱이면 View */}
+        <div style={{ padding: '20px' }}> 
             <div style={{ height: '300px', overflowY: 'auto', border: '1px solid #ddd', marginBottom: '10px' }}>
                 {messages.length === 0 ? (
                     <p>대화를 시작하세요.</p>

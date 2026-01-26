@@ -158,7 +158,7 @@ public class WeatherAlert {
         String baseDate = now.format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         String baseTime = now.format(DateTimeFormatter.ofPattern("HH")) + "30"; // 예보는 보통 정각/30분 단위 데이터
 
-        System.out.println("nx : " + nx + " ny : " + ny);
+//        System.out.println("nx : " + nx + " ny : " + ny);
 //        String baseDate = today.format(DateTimeFormatter.ofPattern("yyyyMMdd"));
 
 //        int hour = today.getHour();
@@ -175,7 +175,7 @@ public class WeatherAlert {
         urlBuilder.append("&" + URLEncoder.encode("nx","UTF-8") + "=" + URLEncoder.encode(String.valueOf(nx), "UTF-8"));
         urlBuilder.append("&" + URLEncoder.encode("ny","UTF-8") + "=" + URLEncoder.encode(String.valueOf(ny), "UTF-8"));
         URL url = new URL(urlBuilder.toString());
-        System.out.println("urlBuilder.toString() : " + urlBuilder.toString());
+//        System.out.println("urlBuilder.toString() : " + urlBuilder.toString());
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         conn.setRequestMethod("GET");
         conn.setRequestProperty("Content-type", "application/json");

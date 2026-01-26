@@ -1,0 +1,19 @@
+{
+    "modelFile": "transaction_data_1ec81f2e.pkl",
+    "title": "transaction_data",
+    "features": [
+        "date",
+        "transaction_hash",
+        "source_account_address",
+        "target_account_address"
+    ],
+    "encodedColumns": [
+        "date",
+        "transaction_hash",
+        "source_account_address",
+        "target_account_address"
+    ],
+    "rows": 4886,
+    "createdAt": "2026-01-26T14:43:11.460760",
+    "status": "success"
+}
