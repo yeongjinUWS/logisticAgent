@@ -60,7 +60,7 @@ public class WebServiceImpl implements WebService {
         request.put("input", message);
         request.put("weather", weather);
         Map<String, Object> result = new HashMap<>();
-        result = restTemplate.postForObject(URI.create("http://localhost:8000/chat"), request,Map.class);
+        result = restTemplate.postForObject(URI.create("http://localhost:8003/chat"), request,Map.class);
         result.put("message", message);
 
         return result;
