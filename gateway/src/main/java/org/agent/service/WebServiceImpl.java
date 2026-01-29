@@ -71,7 +71,7 @@ public class WebServiceImpl implements WebService {
         Map<String, Object> result = new HashMap<>();
         System.out.println("FILE : " + req.getOriginalFilename());
         String fileName = req.getOriginalFilename();
-        Map<String,Object> file = new HashMap<>();
+        Map<String,Object> reqLLM = new HashMap<>();
 
         if (fileName != null && fileName.endsWith(".csv")) {
            return processCsv(req);
@@ -105,29 +105,38 @@ public class WebServiceImpl implements WebService {
             result.put("columns", columns);
             result.put("rowCount", rowCount);
             result.put("samples", samples);
+            reqLLM.put("columns", columns);
+            reqLLM.put("samples", samples);
 
         } catch (Exception e) {
             throw new RuntimeException("엑셀 분석 실패", e);
         }
+        result.put("analyze",restTemplate.postForObject(URI.create("http://localhost:8001/analyze"), reqLLM,Map.class));
         System.out.println("result :: " + result);
 
         return result;
     }
 
     @Override
-    public Map<String, Object> learningModel(MultipartFile file, List<String> columns) {
+    public Map<String, Object> learningModel(MultipartFile file, List<String> columns, String category, String target_recommendation, String description, List<String> samples) {
         File convFile = new File(System.getProperty("java.io.tmpdir") + "/" + file.getOriginalFilename());
         try {
             file.transferTo(convFile);
         } catch (IOException e) {
             throw new RuntimeException("파일 변환 실패", e);
         }
+        Map<String, Object> analyze = new HashMap<>();
+        analyze.put("category",category);
+        analyze.put("target_recommendation", target_recommendation);
+        analyze.put("description", description);
 
         // 2. 요청 바디 구성 (MultipartForm)
         MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
         body.add("file", new FileSystemResource(convFile));
         body.add("columns", String.join(",", columns)); // 쉼표 구분자로 전달
-
+        body.add("samples", String.join(",", samples)); // 쉼표 구분자로 전달
+        body.add("analyze", analyze);
+        System.out.println("body :: " + body);
         // 3. 헤더 설정
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.MULTIPART_FORM_DATA);
@@ -161,6 +170,7 @@ public class WebServiceImpl implements WebService {
 
     private Map<String, Object> processCsv(MultipartFile file) {
         Map<String, Object> result = new HashMap<>();
+        Map<String,Object> reqLLM = new HashMap<>();
         // 인코딩을 UTF-8로 강제 지정
         try (BufferedReader br = new BufferedReader(new InputStreamReader(file.getInputStream(), "UTF-8"))) {
             String line;
@@ -205,7 +215,11 @@ public class WebServiceImpl implements WebService {
             result.put("columns", columns); // 이제 Array(13) 정도로 나올 겁니다.
             result.put("rowCount", rowCount - 1);
             result.put("samples", samples);
+            reqLLM.put("columns", columns);
+            reqLLM.put("samples", samples);
 
+            result.put("analyze",restTemplate.postForObject(URI.create("http://localhost:8001/analyze"), reqLLM,Map.class));
+            System.out.println("result :: " + result);
         } catch (Exception e) {
             throw new RuntimeException("CSV 파싱 실패: " + e.getMessage(), e);
         }

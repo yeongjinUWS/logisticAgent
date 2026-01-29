@@ -3,27 +3,39 @@ import pandas as pd
 import io
 import os
 import hashlib
+import re
 import joblib
 import json  # <--- 반드시 필요
 from datetime import datetime  # <--- 반드시 필요
 from sklearn.ensemble import RandomForestClassifier
+from langchain_google_genai import ChatGoogleGenerativeAI
 from sklearn.preprocessing import LabelEncoder
-
+from langchain_community.chat_models import ChatOllama
 app = FastAPI(title="Dynamic ML Training Agent")
 
+llm = ChatOllama(
+    model="llama3.1", 
+    temperature=0,    
+    format="json",    
+    base_url="http://localhost:11434" #
+)
 current_file = os.path.abspath(__file__)
 
 current_dir = os.path.dirname(current_file)
 BASE_DIR = os.path.dirname(current_dir)
+
 MODEL_DIR = os.path.join(BASE_DIR, "models")
 os.makedirs(MODEL_DIR, exist_ok=True)
 
 @app.post("/train")
 async def train_model(
     file: UploadFile = File(...),
-    columns: str = Form(...)
+    columns: str = Form(...),
+    analyze: str = Form(...),
+    samples: str = Form(...)
 ):
     try:
+        analyze_dict = json.loads(analyze)
         content = await file.read()
         if file.filename.endswith(".csv"):
             df = pd.read_csv(io.BytesIO(content))
@@ -36,6 +48,7 @@ async def train_model(
         X_raw = df[selected_cols]
         y = df[df.columns[-1]]
 
+        samples_list = json.loads(samples)
         # 인코딩 로직
         encoders = {}
         X = pd.DataFrame()
@@ -81,7 +94,9 @@ async def train_model(
             "encodedColumns": list(encoders.keys()),
             "rows": len(df),
             "createdAt": datetime.now().isoformat(), 
-            "status": "success"
+            "status": "success",
+            "analyze": analyze_dict,
+            "category_samples": samples_list
         }
 
         with open(meta_path, "w", encoding="utf-8") as f:
@@ -111,16 +126,7 @@ def list_models():
             try:
                 with open(meta_path, "r", encoding="utf-8") as f:
                     meta = json.load(f)
-                    
-                    # 리스트 조회에 필요한 핵심 요약 정보만 담기
-                    summary = {
-                        "modelFile": meta.get("modelFile"),
-                        "title": meta.get("title"),
-                        "createdAt": meta.get("createdAt"),
-                        # 컬럼은 리스트에서 바로 보여준다면 포함, 아니면 제거
-                        "encodedColumns": meta.get("encodedColumns", []) 
-                    }
-                    models.append(summary)
+                    models.append(meta)
             except Exception as e:
                 print(f"Error reading {file}: {e}")
                 continue
@@ -128,6 +134,46 @@ def list_models():
     # 생성일 기준 역순(최신순) 정렬 서비스 제공
     models.sort(key=lambda x: x.get("createdAt", ""), reverse=True)
     return models
+
+
+
+@app.post("/analyze")
+async def analyze_data(data: dict):
+    cols = data.get("columns")
+    samples = data.get("samples")
+    prompt = f"""
+    당신은 데이터 분석 전문가입니다. 아래의 정보를 분석하여 JSON 형식으로만 답변하세요.
+    마크다운 코드 블록 기호(```json)를 쓰지 말고 오직 순수 JSON 데이터만 출력하세요.
+    
+    [컬럼 정보]: {cols}
+    [샘플 데이터]: {samples}
+    
+    [응답 JSON 구조]:
+    {{
+        "category": "데이터 카테고리",
+        "target_recommendation": "추천 타겟 컬럼명",
+        "description": "데이터셋 한 줄 설명"
+    }}
+    """
+    
+    res = llm.invoke(prompt)
+    print(res)
+    content = res.content.strip()
+
+    try:
+        json_pattern = re.compile(r'\{.*\}', re.DOTALL)
+        match = json_pattern.search(content)
+        
+        if match:
+            json_str = match.group()
+            return json.loads(json_str)
+        else:
+            return json.loads(content)
+            
+    except json.JSONDecodeError as e:
+        print(f"JSON Parsing Error: {e}")
+        print(f"Raw Content: {content}")
+        return {"status": "error", "message": "JSON 파싱에 실패했습니다.", "raw": content}
 
 if __name__ == "__main__":
     import uvicorn

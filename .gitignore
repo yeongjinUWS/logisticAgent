@@ -40,3 +40,4 @@ build/
 /.idea/
 agent/*.pkl
 agent/models/*.pkl
+agent/Historical_Product_Demand_small.csv

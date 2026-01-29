@@ -10,7 +10,7 @@ public interface WebService {
 
     Map<String, Object> uploadExcel(MultipartFile file);
 
-    Map<String, Object> learningModel(MultipartFile file, List<String> columns);
+    Map<String, Object> learningModel(MultipartFile file, List<String> columns, String category, String target_recommendation, String description, List<String> samples);
 
     Map<String, Object> getModels();
 }

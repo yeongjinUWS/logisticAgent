@@ -11,6 +11,7 @@ export default function TraningAPI() {
     const [selectedColumns, setSelectedColumns] = useState(new Set());
     const [modelList, setModelList] = useState([]);
     const [viewDetail, setViewDetail] = useState();
+    const [analyze,setAnalyze] = useState(null);
     useEffect(() => {
         AxiosCustom.post('/api/getModels')
             .then((response) => {
@@ -40,6 +41,7 @@ export default function TraningAPI() {
                     setColumns(response.data.columns);
                     setSamples(response.data.samples);
                     setRowCount(response.data.rowCount);
+                    setAnalyze(response.data.analyze);
                 }).catch((error) => {
                     console.log(error);
                 })
@@ -65,7 +67,11 @@ export default function TraningAPI() {
             const formData = new FormData();
             formData.append("file", file);
             formData.append("column", (Array.from(selectedColumns)));
-
+            formData.append('category',analyze.category);
+            formData.append('target_recommendation',analyze.target_recommendation);
+            formData.append('description',analyze.description);
+            console.log( JSON.stringify(samples))
+            formData.append('samples', JSON.stringify(samples));
             AxiosCustom.post('/api/learning',
                 formData
                 ,
@@ -96,6 +102,7 @@ export default function TraningAPI() {
         handleUpload,
         handleLearning,
         modelList,
-        viewDetail, setViewDetail
+        viewDetail, setViewDetail,
+        analyze
     };
 }

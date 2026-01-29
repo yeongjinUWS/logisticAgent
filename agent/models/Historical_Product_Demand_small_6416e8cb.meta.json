@@ -1,0 +1,55 @@
+{
+    "modelFile": "Historical_Product_Demand_small_6416e8cb.pkl",
+    "title": "Historical_Product_Demand_small",
+    "features": [
+        "Warehouse"
+    ],
+    "encodedColumns": [
+        "Warehouse"
+    ],
+    "rows": 51728,
+    "createdAt": "2026-01-29T16:46:32.921092",
+    "status": "success",
+    "analyze": {
+        "description": "Warehouse에 있는 제품의 주문 수요를 분석합니다.",
+        "target_recommendation": "Product_Code",
+        "category": "주문 수요 분석"
+    },
+    "category_samples": [
+        {
+            "Product_Category": "Category_028",
+            "Warehouse": "Whse_A",
+            "Product_Code": "Product_0993",
+            "Order_Demand": "100",
+            "Date": "2012/7/27"
+        },
+        {
+            "Product_Category": "Category_028",
+            "Warehouse": "Whse_C",
+            "Product_Code": "Product_0979",
+            "Order_Demand": "500",
+            "Date": "2012/1/19"
+        },
+        {
+            "Product_Category": "Category_028",
+            "Warehouse": "Whse_J",
+            "Product_Code": "Product_0979",
+            "Order_Demand": "500",
+            "Date": "2012/2/3"
+        },
+        {
+            "Product_Category": "Category_028",
+            "Warehouse": "Whse_J",
+            "Product_Code": "Product_0979",
+            "Order_Demand": "500",
+            "Date": "2012/2/9"
+        },
+        {
+            "Product_Category": "Category_028",
+            "Warehouse": "Whse_S",
+            "Product_Code": "Product_0979",
+            "Order_Demand": "500",
+            "Date": "2012/3/2"
+        }
+    ]
+}

@@ -15,7 +15,8 @@ export default function Traning() {
         handleCheckboxChange,
         handleLearning,
         modelList,
-        viewDetail, setViewDetail
+        viewDetail, setViewDetail,
+        analyze
     } = TraningAPI();
 
     return (
@@ -73,6 +74,20 @@ export default function Traning() {
                                             <p className="date">
                                                 생성일: {model.createdAt}
                                             </p>
+                                            {
+                                                model && model.analyze ?
+                                                    <>
+                                                        <p className="date">
+                                                            카테고리: {model.analyze.category}
+                                                        </p>
+                                                        <p className="date">
+                                                            설명: {model.analyze.description}
+                                                        </p>
+                                                    </>
+                                                    :
+                                                    null
+                                            }
+
                                         </div>
 
                                         :
@@ -94,6 +109,26 @@ export default function Traning() {
                     </div>
                 ) : (
                     <div>
+                        {
+                            analyze && analyze ?
+
+                                <div
+                                    className="analyzeTab"
+                                >
+                                    <text>
+                                        category : {analyze.category}
+                                    </text>
+                                    <text>
+                                        target recommendation : {analyze.target_recommendation}
+                                    </text>
+                                    <text>
+                                        description : {analyze.description}
+                                    </text>
+                                </div>
+
+                                :
+                                null
+                        }
                         <text>
                             Data Count : {rowCount}
                         </text>
@@ -160,6 +195,6 @@ export default function Traning() {
                     </div>
                 )}
             </div>
-        </div>
+        </div >
     );
 }
