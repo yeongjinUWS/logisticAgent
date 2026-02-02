@@ -18,18 +18,18 @@ llm_json = ChatOllama(
     model="llama3.1",
     temperature=0,
     format="json",
-    base_url="http://localhost:11434"
+    base_url="http://192.168.10.20:11434"
 )
 
 llm_chat = ChatOllama(
     model="llama3.1",
     temperature=0.6,
-    base_url="http://localhost:11434"
+    base_url="http://192.168.10.20:11434"
 )
 DB_CONFIG = {
     "dbname": "test_veta_wallet",
     "user": "root",
-    "password": "123",
+    "password": "Abcd1234",
     "host": "192.168.40.119",
     "port": 30432,
 }
@@ -106,7 +106,11 @@ def chat_agent(state: AgentState) -> AgentState:
 def sql_planner_agent(state: AgentState) -> AgentState:
     print(f"sql_planner_agent")
     prompt = f"""
-    아래 질문에 대한 SELECT SQL만 작성하세요.
+    아래는 복지 포인트 시스템의 데이터베이스 테이블 정보입니다. 이 이름들을 정확히 사용하세요.
+    - tbl_user : 사용자 정보 (name, user_id, email, first_name, last_name, phone_number 등)
+    - tbl_core_balance : 포인트 잔액 정보 (amount, address, token_id 등)
+    - tbl_transaction : 결제 및 거래 내역 (source_name, amount 등)
+    - tbl_staking_transaction : 스테이킹/이차 정보
 
     질문: {state["input"]}
     사용자 : {state["user"]}
@@ -120,14 +124,15 @@ def sql_planner_agent(state: AgentState) -> AgentState:
     if not sql_is_safe(sql):
         return {"sql_query": None}
 
-    return {"sql_query": sql + " LIMIT 50"}
+    return {"sql_query": sql }
 
 def db_executor_agent(state: AgentState) -> AgentState:
     print(f"db_executor_agent")
+    print(f"{state["sql_query"]}")
     if not state.get("sql_query"):
         return {"db_results": [{"error": "안전하지 않은 SQL"}]}
     try:
-        with psycopg2.connect(DB_CONFIG) as conn:
+        with psycopg2.connect(**DB_CONFIG) as conn: 
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute(state["sql_query"])
                 rows = cur.fetchall()
@@ -171,9 +176,10 @@ def reporter_agent(state: AgentState) -> AgentState:
         )
 
     prompt = f"""
+    veneta AI agent입니다. 앱 사용자에게 민감한 정보는 제공하지말고, 간단한 도움을 제공하세요.
     질문: {state["input"]}
     결과: {context}
-    사용자에게 설명하세요.
+    사용자에게 짧게 설명하세요.
     """
     res = llm_chat.invoke(prompt)
     print(f"result : {res.content}" )
