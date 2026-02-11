@@ -18,13 +18,13 @@ llm_json = ChatOllama(
     model="llama3.1",
     temperature=0,
     format="json",
-    base_url="http://192.168.10.20:11434"
+    base_url="http://newyork-llm.newyork-llm:11434"
 )
 
 llm_chat = ChatOllama(
     model="llama3.1",
     temperature=0.6,
-    base_url="http://192.168.10.20:11434"
+    base_url="http://newyork-llm.newyork-llm:11434"
 )
 DB_CONFIG = {
     "dbname": "test_veta_wallet",
@@ -128,7 +128,6 @@ def sql_planner_agent(state: AgentState) -> AgentState:
 
 def db_executor_agent(state: AgentState) -> AgentState:
     print(f"db_executor_agent")
-    print(f"{state["sql_query"]}")
     if not state.get("sql_query"):
         return {"db_results": [{"error": "안전하지 않은 SQL"}]}
     try:
